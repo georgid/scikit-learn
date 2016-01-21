@@ -1,0 +1,54 @@
+commit 33b0934e5ed1311cbc0ac0619d7e15db295dc9c1
+Author: georgid <georgi.dzhambazov@upf.edu>
+Date:   Thu Jan 21 18:31:09 2016 +0100
+
+    added a workaround  to underflow issues. Explained here: https://github.com/hmmlearn/hmmlearn/issues/35
+
+diff --git a/sklearn/mixture/gmm.py b/sklearn/mixture/gmm.py
+index 9532bb0..304b196 100644
+--- a/sklearn/mixture/gmm.py
++++ b/sklearn/mixture/gmm.py
+@@ -325,7 +325,8 @@ class GMM(BaseEstimator):
+                                                self.covariance_type) +
+                np.log(self.weights_))
+         logprob = logsumexp(lpr, axis=1)
+-        responsibilities = np.exp(lpr - logprob[:, np.newaxis])
++        #responsibilities = np.exp(lpr - logprob[:, np.newaxis])
++        responsibilities = None
+         return logprob, responsibilities
+ 
+     def score(self, X, y=None):
+diff --git a/sklearn/utils/extmath.py b/sklearn/utils/extmath.py
+index 354a5d2..9584990 100644
+--- a/sklearn/utils/extmath.py
++++ b/sklearn/utils/extmath.py
+@@ -389,15 +389,27 @@ def logsumexp(arr, axis=0):
+     >>> logsumexp(a)
+     9.4586297444267107
+     """
++    import sys
++    MINIMAL_PROB = sys.float_info.min
++    
+     arr = np.rollaxis(arr, axis)
+     # Use the max to normalize, as with the log this is what accumulates
+     # the less errors
+     vmax = arr.max(axis=0)
+-    out = np.log(np.sum(np.exp(arr - vmax), axis=0))
++    old_settings = np.seterr( under='raise')
++    try:
++        a = np.exp(arr - vmax)
++    except FloatingPointError:
++        old_settings = np.seterr( under='ignore')
++        a = np.exp(arr - vmax)
++        a[a==0] = MINIMAL_PROB
++    b = np.sum(a, axis=0)
++    out = np.log(b)
+     out += vmax
++    
++    old_settings = np.seterr( under='raise')
+     return out
+ 
+-
+ def weighted_mode(a, w, axis=0):
+     """Returns an array of the weighted modal (most common) value in a
+ 
