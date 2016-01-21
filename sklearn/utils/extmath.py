@@ -389,14 +389,26 @@ def logsumexp(arr, axis=0):
     >>> logsumexp(a)
     9.4586297444267107
     """
+    import sys
+    MINIMAL_PROB = sys.float_info.min
+    
     arr = np.rollaxis(arr, axis)
     # Use the max to normalize, as with the log this is what accumulates
     # the less errors
     vmax = arr.max(axis=0)
-    out = np.log(np.sum(np.exp(arr - vmax), axis=0))
+    old_settings = np.seterr( under='raise')
+    try:
+        a = np.exp(arr - vmax)
+    except FloatingPointError:
+        old_settings = np.seterr( under='ignore')
+        a = np.exp(arr - vmax)
+        a[a==0] = MINIMAL_PROB
+    b = np.sum(a, axis=0)
+    out = np.log(b)
     out += vmax
+    
+    old_settings = np.seterr( under='raise')
     return out
-
 
 def weighted_mode(a, w, axis=0):
     """Returns an array of the weighted modal (most common) value in a

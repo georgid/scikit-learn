@@ -325,7 +325,8 @@ class GMM(BaseEstimator):
                                                self.covariance_type) +
                np.log(self.weights_))
         logprob = logsumexp(lpr, axis=1)
-        responsibilities = np.exp(lpr - logprob[:, np.newaxis])
+        #responsibilities = np.exp(lpr - logprob[:, np.newaxis])
+        responsibilities = None
         return logprob, responsibilities
 
     def score(self, X, y=None):
